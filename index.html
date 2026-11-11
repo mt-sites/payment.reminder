@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Internet payment reminder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E4E9F1; --ink:#1E2A44; --muted:#586279;
+  --sh-d:#BCC4D4; --sh-l:#FFFFFF;
+  --accent:#1558E8; --ok:#0F7A58; --warn:#A85A08; --bad:#B8232B;
+  --raise:9px 9px 20px var(--sh-d),-9px -9px 20px var(--sh-l);
+  --raise-s:5px 5px 11px var(--sh-d),-5px -5px 11px var(--sh-l);
+  --raise-xs:3px 3px 7px var(--sh-d),-3px -3px 7px var(--sh-l);
+  --inset:inset 4px 4px 9px var(--sh-d),inset -4px -4px 9px var(--sh-l);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{height:100%}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:clamp(15px,.35vw + 13.5px,19px)/1.5 "IBM Plex Sans",system-ui,sans-serif;
+  padding:max(clamp(18px,3vw,40px),env(safe-area-inset-top,0px)) clamp(18px,3vw,40px) max(36px,env(safe-area-inset-bottom,0px))}
+main{max-width:560px;margin:0 auto;display:grid;gap:clamp(10px,1.5vw,20px);
+  grid-template-columns:minmax(0,1fr);grid-template-areas:"bill" "pay" "after"}
+.bill{grid-area:bill} .pay{grid-area:pay} .after{grid-area:after}
+@media (min-width:600px) and (max-width:899px){main{max-width:680px}}
+@media (min-width:900px){
+  main{max-width:1080px;grid-template-columns:minmax(0,5fr) minmax(0,6fr);
+    grid-template-areas:"bill pay" "after pay";align-items:start;column-gap:clamp(24px,3.5vw,52px)}
+  .bill{position:sticky;top:max(20px,env(safe-area-inset-top,0px))}
+  .pay h2{margin-top:0}
+}
+@media (min-width:1500px){html{font-size:112%}}
+h1,h2,.amount{font-family:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;margin:0}
+
+/* raised card */
+.bill{container-type:inline-size;background:var(--bg);border-radius:28px;box-shadow:var(--raise);
+  padding:clamp(20px,3vw,34px) clamp(20px,2.8vw,32px);position:relative}
+/* pressed-in status pill with a glowing dot */
+.status{display:inline-flex;align-items:center;gap:9px;padding:7px 16px;border-radius:99px;background:var(--bg);box-shadow:var(--inset);
+  color:var(--status,var(--accent));font-weight:600;font-size:14px}
+.status::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--status,var(--accent));box-shadow:0 0 0 3px var(--bg),0 0 8px var(--status,var(--accent))}
+.bill h1{font-size:clamp(22px,2.2vw + 14px,34px);text-wrap:balance;line-height:1.15;margin-top:16px;font-weight:600}
+.amount{font-size:clamp(34px,13cqi,76px);white-space:nowrap;font-weight:800;line-height:1;margin:18px 0 6px;letter-spacing:-.02em;
+  text-shadow:2px 2px 3px var(--sh-l),-1px -1px 2px rgba(120,130,155,.35)}
+.amount small{font-size:.45em;font-weight:600;margin-right:6px;color:var(--muted);text-shadow:none}
+/* groove divider */
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px;padding-top:20px;position:relative}
+.meta::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;border-radius:4px;box-shadow:var(--inset)}
+.meta dt{font-size:13px;color:var(--muted)}
+.meta dd{margin:2px 0 0;font-weight:500}
+
+h2{font-size:clamp(19px,1vw + 15px,26px);font-weight:600;margin:clamp(24px,4vw,32px) 6px 14px}
+.methods{display:grid;gap:16px}
+details{background:var(--bg);border-radius:20px;box-shadow:var(--raise-s);transition:box-shadow .2s}
+details[open]{box-shadow:var(--raise)}
+summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:14px;padding:14px 18px;font-weight:600;border-radius:20px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s}
+details[open] summary::after{transform:rotate(-135deg)}
+/* logo tiles scale with text size and always show the whole logo */
+.logo{width:2.7em;height:2.7em;aspect-ratio:1;border-radius:.8em;background:#fff;box-shadow:var(--raise-xs);display:grid;place-items:center;flex:none;overflow:hidden}
+.logo img{width:100%;height:100%;object-fit:contain;padding:0;display:block}
+.logo.fallback{background:var(--brand);color:#fff;font:800 18px "Bricolage Grotesque",sans-serif}
+.btn .logo{width:1.6em;height:1.6em;border-radius:.45em;margin-right:.55em;vertical-align:middle;display:inline-grid;box-shadow:none}
+.btn .logo.fallback{font-size:12px}
+.body{padding:4px 18px 20px;display:grid;gap:14px}
+/* pressed-in fields */
+.field{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg);box-shadow:var(--inset);border-radius:14px;padding:12px 14px}
+.field span{display:block;font-size:13px;color:var(--muted)}
+.field>div{min-width:0}.field strong{font-size:clamp(16px,.4vw + 15px,20px);letter-spacing:.02em;overflow-wrap:anywhere}
+/* soft buttons: raised, pressed on tap */
+button,.btn{font:inherit;font-weight:600;border:0;border-radius:14px;padding:10px 18px;min-height:46px;cursor:pointer;text-decoration:none;display:inline-block;text-align:center;
+  transition:box-shadow .15s,transform .15s}
+.copy{background:var(--bg);color:var(--ink);box-shadow:var(--raise-xs);flex:none}
+.copy:active{box-shadow:inset 3px 3px 7px var(--sh-d),inset -3px -3px 7px var(--sh-l)}
+.copy.done{color:var(--ok);box-shadow:inset 3px 3px 7px var(--sh-d),inset -3px -3px 7px var(--sh-l)}
+.actions{display:flex;gap:12px;flex-wrap:wrap}
+.btn.primary{background:linear-gradient(145deg,#2E74FF,#1250DC);color:#fff;box-shadow:var(--raise-s)}
+.btn.primary:active{box-shadow:inset 3px 3px 8px rgba(0,20,90,.45),inset -2px -2px 6px rgba(255,255,255,.25)}
+.qr{max-width:min(220px,60vw);width:100%;border-radius:18px;background:#fff;padding:10px;box-shadow:var(--raise-s);justify-self:center}
+.note{font-size:14px;color:var(--muted);margin:0}
+.note.warn{color:var(--warn);font-weight:500}
+.steps{margin:0;padding-left:22px;color:var(--muted);font-size:15px}
+.steps li{margin:6px 0}
+footer{margin-top:24px;text-align:center}
+footer .btn{width:100%}@media (min-width:900px){footer{text-align:left}footer .btn{width:auto}}
+@media (max-width:420px){.field{flex-wrap:wrap}.copy{width:100%}.actions .btn{flex:1 1 100%}.meta{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+</style>
+</head>
+<body>
+<main>
+  <section class="bill" id="bill" aria-live="polite">
+    <span class="status" id="status">Payment reminder</span>
+    <h1 id="title">Hi, your internet bill is due</h1>
+    <p class="amount" id="amount"><small>PHP</small>0.00</p>
+    <dl class="meta">
+      <div><dt>Due date</dt><dd id="due">–</dd></div>
+      <div><dt>Billing period</dt><dd id="period">–</dd></div>
+    </dl>
+  </section>
+
+  <section class="pay">
+  <h2>Pay with</h2>
+  <div class="methods" id="methods"></div>
+  </section>
+
+  <section class="after">
+  <h2>After you pay</h2>
+  <ol class="steps">
+    <li>Add your name in the message or notes field.</li>
+    <li>Take a screenshot of the receipt.</li>
+    <li>Send it to us with the button below so we can mark your bill as paid.</li>
+  </ol>
+  <footer>
+    <a class="btn primary" id="proof" href="#">Send proof of payment</a>
+  </footer>
+  </section>
+</main>
+
+<script>
+/* ===== EDIT THIS SECTION ===== */
+const CONFIG = {
+  provider: "Your Internet Service",     // your business / ISP name
+  customer: "Customer",                  // default name (can be set in URL: ?name=Juan)
+  amount: 799,                           // PHP (URL: ?amount=799)
+  dueDay: 15,            // day of the month the bill is due (auto-moves to the next month)
+  periodStartDay: 1,     // billing period starts on this day each month (1 = 1st to end of month)
+  overdueDays: 5,        // keep showing "Overdue" this many days after the due date, then roll to next month
+  contact: {
+    messenger: "",                       // e.g. "https://m.me/yourpage"
+    email: "you@example.com",            // used if messenger is blank
+    sms: ""                              // e.g. "09170000000"
+  },
+  methods: [
+    // logo = path to the OFFICIAL logo file (put them in a "logos" folder next to this page).
+    // android = app package (opens the installed app on Android). scheme = iPhone deep link that opens the app (e.g. "gcash://"); leave "" if unknown. qr = optional payment QR image.
+    { name:"GCash", logo:"logos/gcash.png",        brand:"#007CFF", accName:"YOUR FULL NAME", accNumber:"0917 000 0000",     android:"com.globe.gcash.android", scheme:"gcash://", qr:"" },
+    { name:"Maya", logo:"logos/maya.png",         brand:"#1FBF75", accName:"YOUR FULL NAME", accNumber:"0917 000 0000",     android:"com.paymaya", scheme:"", qr:"" },
+    { name:"GoTyme Bank", logo:"logos/gotyme.png",  brand:"#18B8C8", accName:"YOUR FULL NAME", accNumber:"0000 0000 0000",    android:"ph.com.gotyme", scheme:"", qr:"" },
+    { name:"MariBank", logo:"logos/maribank.png",     brand:"#F26B21", accName:"YOUR FULL NAME", accNumber:"0000 0000 0000",    android:"ph.seabank.seabank", scheme:"", qr:"" },
+    { name:"Landbank", logo:"logos/landbank.png",     brand:"#2E8B3D", accName:"YOUR FULL NAME", accNumber:"0000 0000 00",      android:"com.landbank.mobilebanking", scheme:"", qr:"" }
+  ]
+};
+/* ============================= */
+
+const q = new URLSearchParams(location.search);
+const C = {
+  ...CONFIG,
+  customer: q.get("name") || CONFIG.customer,
+  amount: parseFloat(q.get("amount")) || CONFIG.amount,
+  dueDay: parseInt(q.get("dueday")) || CONFIG.dueDay
+};
+const $ = id => document.getElementById(id);
+const peso = n => n.toLocaleString("en-PH",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+/* bill + status */
+document.title = `Payment reminder – ${C.provider}`;
+$("title").textContent = `Hi ${C.customer}, your internet bill is due`;
+$("amount").innerHTML = `<small>PHP</small>${peso(C.amount)}`;
+/* auto due date + billing period (moves with the calendar) */
+const daysIn = (y, m) => new Date(y, m + 1, 0).getDate();
+const mk = (y, m, d) => new Date(y, m, Math.min(d, daysIn(y, m)));
+const now = new Date();
+const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+let dueDate;
+const fixed = (q.get("due") || "").split("-").map(Number);       // optional override: ?due=2026-12-20
+if (fixed.length === 3 && !fixed.some(isNaN)) dueDate = new Date(fixed[0], fixed[1] - 1, fixed[2]);
+else {
+  dueDate = mk(today.getFullYear(), today.getMonth(), C.dueDay);
+  if ((today - dueDate) / 864e5 > C.overdueDays) dueDate = mk(today.getFullYear(), today.getMonth() + 1, C.dueDay);
+}
+const pStart = mk(dueDate.getFullYear(), dueDate.getMonth(), C.periodStartDay);
+const nextStart = mk(dueDate.getFullYear(), dueDate.getMonth() + 1, C.periodStartDay);
+const pEnd = new Date(nextStart.getFullYear(), nextStart.getMonth(), nextStart.getDate() - 1);
+const short = d => d.toLocaleDateString("en-PH", {month:"short", day:"numeric"});
+$("period").textContent = q.get("period") || `${short(pStart)} – ${short(pEnd)}, ${pEnd.getFullYear()}`;
+$("due").textContent = dueDate.toLocaleDateString("en-PH", {weekday:"short", year:"numeric", month:"long", day:"numeric"});
+
+const days = Math.round((dueDate - today) / 864e5);
+let text, color;
+if (days < 0)       { text = `Overdue by ${-days} day${days === -1 ? "" : "s"}`; color = "--bad"; }
+else if (days === 0){ text = "Due today"; color = "--warn"; }
+else if (days <= 3) { text = `Due in ${days} day${days === 1 ? "" : "s"}`; color = "--warn"; }
+else                { text = `Due in ${days} days`; color = "--ok"; }
+$("status").textContent = text;
+$("bill").style.setProperty("--status", `var(${color})`);
+
+/* payment methods */
+const copyText = async (text, btn) => {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const t = document.createElement("textarea");
+    t.value = text; document.body.appendChild(t); t.select();
+    try { document.execCommand("copy"); } catch {}
+    t.remove();
+  }
+  const old = btn.textContent;
+  btn.textContent = "Copied"; btn.classList.add("done");
+  setTimeout(() => { btn.textContent = old; btn.classList.remove("done"); }, 1600);
+};
+
+const isAndroid = /android/i.test(navigator.userAgent);
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+/* opens the installed app directly (never the store) */
+function openApp(m, msgEl) {
+  msgEl.hidden = true;
+  let target = "";
+  if (isAndroid && m.android)
+    target = `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${m.android};end`;
+  else if (isIOS && m.scheme) target = m.scheme;
+  if (!target) {
+    msgEl.textContent = isAndroid || isIOS
+      ? `Open the ${m.name} app from your home screen, then use the details above.`
+      : `Open this page on your phone to launch ${m.name}.`;
+    msgEl.hidden = false; return;
+  }
+  location.href = target;
+  setTimeout(() => {              // still on the page = the app did not open
+    if (document.visibilityState === "visible") {
+      msgEl.textContent = `Couldn’t open ${m.name}. Make sure it’s installed, or open it from your home screen.`;
+      msgEl.hidden = false;
+    }
+  }, 1600);
+}
+
+const logoHTML = m => `<span class="logo" style="--brand:${m.brand}"><img src="${m.logo||""}" alt="${m.name} logo" onerror="this.parentNode.classList.add('fallback');this.replaceWith(document.createTextNode('${m.name[0]}'))"></span>`;
+
+C.methods.forEach((m, i) => {
+  const d = document.createElement("details");
+  if (i === 0) d.open = true;
+  const digits = m.accNumber.replace(/\s/g, "");
+  d.innerHTML = `
+    <summary>${logoHTML(m)}${m.name}</summary>
+    <div class="body">
+      <div class="field"><div><span>Account name</span><strong>${m.accName}</strong></div></div>
+      <div class="field"><div><span>Account number</span><strong>${m.accNumber}</strong></div>
+        <button class="copy" type="button" data-copy="${digits}">Copy</button></div>
+      <div class="field"><div><span>Amount to send</span><strong>PHP ${peso(C.amount)}</strong></div>
+        <button class="copy" type="button" data-copy="${C.amount.toFixed(2)}">Copy</button></div>
+      ${m.qr ? `<img class="qr" src="${m.qr}" alt="${m.name} payment QR code">` : ""}
+      <div class="actions"><a class="btn primary openapp" href="#">${logoHTML(m)}Open ${m.name} app</a></div>
+      <p class="note">Put <b>${C.customer}</b> in the message or notes. </p>
+      <p class="note warn" role="status" hidden></p>
+    </div>`;
+  d.querySelector(".openapp").addEventListener("click", e => { e.preventDefault(); openApp(m, d.querySelector(".warn")); });
+  d.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", () => copyText(b.dataset.copy, b)));
+  $("methods").appendChild(d);
+});
+
+/* proof of payment link */
+const msg = `Payment sent by ${C.customer} for ${$("period").textContent} – PHP ${peso(C.amount)}. Receipt attached.`;
+const ct = C.contact;
+$("proof").href = ct.messenger ? ct.messenger
+  : ct.sms ? `sms:${ct.sms}?body=${encodeURIComponent(msg)}`
+  : `mailto:${ct.email}?subject=${encodeURIComponent("Proof of payment – " + C.customer)}&body=${encodeURIComponent(msg)}`;
+</script>
+</body>
+</html>
